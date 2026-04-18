@@ -4,6 +4,8 @@ A clean, shareable view of a GitHub profile.
 
 This dashboard lets you quickly check activity, streaks, languages, top repos, and recent commits, then share the results as text or an image.
 
+![GitHub Dashboard Screenshot](github/torvalds-github.png)
+
 ## What You Can Do
 
 - Load any GitHub username
