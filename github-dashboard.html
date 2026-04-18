@@ -1,0 +1,1170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GitHub Dashboard</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <style>
+    /* ── Reset & base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0d1117;
+      --bg2:       #161b22;
+      --bg3:       #21262d;
+      --border:    #30363d;
+      --text:      #e6edf3;
+      --text2:     #8b949e;
+      --text3:     #484f58;
+      --green0:    #161b22;
+      --green1:    #0e4429;
+      --green2:    #006d32;
+      --green3:    #26a641;
+      --green4:    #39d353;
+      --blue:      #58a6ff;
+      --radius:    8px;
+      --radius-lg: 12px;
+      --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      font-size: 14px;
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    a { color: var(--blue); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Layout ── */
+    .wrapper { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .grid-3 { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
+
+    @media (max-width: 768px) {
+      .grid-4 { grid-template-columns: repeat(2, 1fr); }
+      .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem;
+    }
+
+    .metric-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem 1.25rem;
+    }
+    .metric-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text2); margin-bottom: 6px; }
+    .metric-val   { font-size: 26px; font-weight: 600; color: var(--text); line-height: 1; }
+    .metric-sub   { font-size: 11px; color: var(--text3); margin-top: 4px; }
+
+    /* ── Section labels ── */
+    .section { margin-bottom: 1.5rem; }
+    .section-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text3);
+      margin-bottom: 10px;
+    }
+
+    /* ── Header ── */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 1.75rem;
+      flex-wrap: wrap;
+    }
+    .avatar {
+      width: 48px; height: 48px;
+      border-radius: 50%;
+      background: #1f6feb;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; font-weight: 600; color: #fff;
+      flex-shrink: 0;
+    }
+    .username  { font-size: 18px; font-weight: 600; }
+    .user-sub  { font-size: 12px; color: var(--text2); margin-top: 2px; }
+    .user-input {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-left: auto;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .user-input input {
+      background: var(--bg3); border: 1px solid var(--border);
+      color: var(--text); border-radius: var(--radius);
+      padding: 6px 12px; font-size: 13px; width: 180px;
+      outline: none;
+    }
+    #token-input { width: 220px; }
+    .user-input input:focus { border-color: #58a6ff; }
+    .btn {
+      background: #21262d; border: 1px solid var(--border);
+      color: var(--text); border-radius: var(--radius);
+      padding: 6px 14px; font-size: 13px; cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn:hover { background: #30363d; }
+    .btn-primary {
+      background: #238636; border-color: #2ea043;
+      color: #fff;
+    }
+    .btn-primary:hover { background: #2ea043; }
+
+    /* ── Tabs ── */
+    .tabs { display: flex; gap: 4px; margin-bottom: 14px; }
+    .tab {
+      font-size: 12px; padding: 4px 12px;
+      border-radius: 100px; cursor: pointer;
+      border: 1px solid transparent;
+      color: var(--text2); background: transparent;
+      transition: all 0.15s;
+    }
+    .tab:hover  { color: var(--text); }
+    .tab.active { border-color: var(--border); color: var(--text); background: var(--bg3); }
+
+    /* ── Contribution grid ── */
+    #contrib-wrap {
+      display: flex; gap: 3px;
+      overflow-x: auto; padding-bottom: 4px;
+    }
+    #contrib-wrap::-webkit-scrollbar { height: 4px; }
+    #contrib-wrap::-webkit-scrollbar-track { background: transparent; }
+    #contrib-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .contrib-col  { display: flex; flex-direction: column; gap: 3px; }
+    .contrib-cell { width: 12px; height: 12px; border-radius: 2px; cursor: default; }
+    .contrib-cell:hover { outline: 1px solid rgba(255,255,255,0.35); }
+
+    .contrib-meta {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 10px; flex-wrap: wrap;
+    }
+    .contrib-meta span { font-size: 12px; color: var(--text2); }
+    .legend { display: flex; align-items: center; gap: 3px; margin-left: auto; }
+    .legend span { font-size: 11px; color: var(--text3); }
+
+    /* ── Month labels ── */
+    #month-labels {
+      display: flex; gap: 3px;
+      margin-bottom: 4px; overflow: hidden;
+      padding-left: 0;
+    }
+    .month-slot {
+      width: 12px; font-size: 10px;
+      color: var(--text3); white-space: nowrap;
+      overflow: visible;
+    }
+
+    /* ── Commits ── */
+    .commit-item {
+      display: flex; gap: 10px; padding: 9px 0;
+      border-bottom: 1px solid var(--border);
+      align-items: flex-start;
+    }
+    .commit-item:last-child { border-bottom: none; }
+    .commit-hash { font-size: 11px; font-family: var(--font-mono); color: var(--blue); min-width: 60px; flex-shrink: 0; padding-top: 2px; }
+    .commit-msg  { font-size: 13px; flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .commit-meta { font-size: 11px; color: var(--text2); white-space: nowrap; }
+    .repo-chip {
+      font-size: 11px; padding: 1px 7px;
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 100px; color: var(--text2); margin-right: 4px;
+    }
+
+    /* ── Goals ── */
+    .goal-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 0; border-bottom: 1px solid var(--border);
+    }
+    .goal-row:last-child { border-bottom: none; }
+    .goal-name { min-width: 130px; font-size: 12px; color: var(--text2); }
+    .progress-bg { flex: 1; height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
+    .goal-count { font-size: 11px; color: var(--text3); min-width: 50px; text-align: right; }
+    .goal-remove {
+      font-size: 12px; background: none; border: none;
+      color: var(--text3); cursor: pointer; padding: 0 4px;
+      line-height: 1;
+    }
+    .goal-remove:hover { color: #f85149; }
+
+    /* ── Add goal form ── */
+    .add-form {
+      margin-top: 14px; padding-top: 14px;
+      border-top: 1px solid var(--border);
+      display: none;
+    }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+    .form-row select, .form-row input {
+      background: var(--bg3); border: 1px solid var(--border);
+      color: var(--text); border-radius: var(--radius);
+      padding: 6px 10px; font-size: 12px; outline: none; width: 100%;
+    }
+    .form-row select:focus, .form-row input:focus { border-color: var(--blue); }
+    .form-btns { display: flex; gap: 6px; }
+
+    /* ── Repos ── */
+    .repo-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 0; border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .repo-row:last-child { border-bottom: none; }
+    .repo-stars { font-size: 11px; color: var(--text3); }
+
+    /* ── Lang legend ── */
+    #lang-legend {
+      display: flex; flex-wrap: wrap; gap: 10px;
+      margin-top: 12px; font-size: 12px; color: var(--text2);
+    }
+    #lang-legend span { display: flex; align-items: center; gap: 5px; }
+
+    /* ── Tooltip ── */
+    #tooltip {
+      position: fixed; pointer-events: none;
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 6px; padding: 5px 10px;
+      font-size: 12px; color: var(--text2);
+      z-index: 999; display: none; white-space: nowrap;
+    }
+
+    /* ── Streak badge ── */
+    .streak-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: rgba(56,188,100,0.12); border: 1px solid rgba(56,188,100,0.25);
+      border-radius: 100px; padding: 2px 10px;
+      font-size: 12px; color: #3fb950; margin-left: 8px;
+    }
+
+    /* ── Status banner ── */
+    .status-banner {
+      width: 100%;
+      margin-top: 10px;
+      border-radius: var(--radius);
+      border: 1px solid transparent;
+      padding: 8px 12px;
+      font-size: 12px;
+      display: none;
+    }
+    .status-banner.info {
+      display: block;
+      color: #9ecbff;
+      background: rgba(56, 139, 253, 0.12);
+      border-color: rgba(56, 139, 253, 0.35);
+    }
+    .status-banner.success {
+      display: block;
+      color: #7ee787;
+      background: rgba(63, 185, 80, 0.12);
+      border-color: rgba(63, 185, 80, 0.35);
+    }
+    .status-banner.warn {
+      display: block;
+      color: #f2cc60;
+      background: rgba(187, 128, 9, 0.18);
+      border-color: rgba(210, 153, 34, 0.4);
+    }
+    .status-banner.error {
+      display: block;
+      color: #ffb3ad;
+      background: rgba(248, 81, 73, 0.15);
+      border-color: rgba(248, 81, 73, 0.35);
+    }
+
+    @media (max-width: 768px) {
+      .user-input {
+        margin-left: 0;
+        justify-content: flex-start;
+      }
+      .user-input input,
+      #token-input {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div id="tooltip"></div>
+
+<div class="wrapper">
+
+  <!-- ── Header ── -->
+  <div class="header">
+    <div class="avatar" id="avatar-initials">LT</div>
+    <div>
+      <div class="username" id="display-username">torvalds</div>
+      <div class="user-sub" id="display-meta">Joined 2011 · Portland, OR</div>
+    </div>
+    <span class="streak-badge">🔥 14 day streak</span>
+    <div class="user-input">
+      <input type="text" id="username-input" placeholder="GitHub username…" value="torvalds" />
+      <input type="password" id="token-input" placeholder="GitHub token (optional)" autocomplete="off" />
+      <button class="btn btn-primary" id="load-btn" onclick="loadUser()">Load</button>
+    </div>
+    <div id="status-banner" class="status-banner" role="status" aria-live="polite"></div>
+  </div>
+
+  <!-- ── Metrics ── -->
+  <div class="section">
+    <div class="section-label">overview</div>
+    <div class="grid-4">
+      <div class="metric-card"><div class="metric-label">Commits this year</div><div class="metric-val" id="m-commits">2,841</div></div>
+      <div class="metric-card"><div class="metric-label">Public repos</div><div class="metric-val" id="m-repos">32</div></div>
+      <div class="metric-card"><div class="metric-label">Current streak</div><div class="metric-val" id="m-streak">14 days</div></div>
+      <div class="metric-card"><div class="metric-label">Longest streak</div><div class="metric-val" id="m-longest">67 days</div></div>
+    </div>
+  </div>
+
+  <!-- ── Contribution Graph ── -->
+  <div class="section">
+    <div class="section-label">contribution graph</div>
+    <div class="card">
+      <div class="contrib-meta">
+        <span id="contrib-label">2,841 contributions in the last year</span>
+        <div class="legend">
+          <span>less</span>
+          <div style="display:flex;gap:3px;align-items:center;">
+            <div style="width:12px;height:12px;border-radius:2px;background:#161b22;border:1px solid #30363d;"></div>
+            <div style="width:12px;height:12px;border-radius:2px;background:#0e4429;"></div>
+            <div style="width:12px;height:12px;border-radius:2px;background:#006d32;"></div>
+            <div style="width:12px;height:12px;border-radius:2px;background:#26a641;"></div>
+            <div style="width:12px;height:12px;border-radius:2px;background:#39d353;"></div>
+          </div>
+          <span>more</span>
+        </div>
+      </div>
+      <div id="month-labels"></div>
+      <div id="contrib-wrap"></div>
+    </div>
+  </div>
+
+  <!-- ── Commits + Languages ── -->
+  <div class="grid-3 section">
+    <div>
+      <div class="section-label">recent commits</div>
+      <div class="card">
+        <div class="tabs">
+          <button class="tab active" onclick="setFilter('all',this)">All</button>
+          <button class="tab" onclick="setFilter('today',this)">Today</button>
+          <button class="tab" onclick="setFilter('week',this)">This week</button>
+        </div>
+        <div id="commit-list"></div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div>
+        <div class="section-label">languages</div>
+        <div class="card">
+          <div style="position:relative;height:180px;">
+            <canvas id="langChart" role="img" aria-label="Language breakdown donut chart">Language breakdown</canvas>
+          </div>
+          <div id="lang-legend"></div>
+        </div>
+      </div>
+      <div>
+        <div class="section-label">top repos</div>
+        <div class="card" id="repos-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Goals + Weekly ── -->
+  <div class="grid-2 section">
+    <div>
+      <div class="section-label">goals &amp; tracking</div>
+      <div class="card">
+        <div id="goals-list"></div>
+        <button class="btn" style="margin-top:12px;font-size:12px;" onclick="toggleAddForm()">+ Add goal</button>
+        <div class="add-form" id="add-form">
+          <div class="form-row">
+            <select id="goal-type">
+              <option value="daily">Daily commits</option>
+              <option value="weekly">Weekly commits</option>
+              <option value="pr">Pull requests / week</option>
+              <option value="streak">Streak (days)</option>
+            </select>
+            <input type="number" id="goal-target" placeholder="Target" min="1" />
+          </div>
+          <div class="form-btns">
+            <button class="btn btn-primary" onclick="addGoal()">Save goal</button>
+            <button class="btn" onclick="toggleAddForm()">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="section-label">daily commits — this week</div>
+      <div class="card">
+        <div style="position:relative;height:220px;">
+          <canvas id="weekChart" role="img" aria-label="Bar chart of commits per day this week">Commits this week</canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /wrapper -->
+
+<script>
+/* ─────────────────────────────────────────────
+  API + FALLBACK DATA
+   ───────────────────────────────────────────── */
+
+const MOCK_USERS = {
+  torvalds:    { initials:'LT', joined:'2011', loc:'Portland, OR',   commits:2841, repos:32,  streak:14, longest:67, langs:[38,24,18,12,8], repoNames:['linux','subsurface','test-tlb','uemacs','Portland'], stars:[143200,3100,890,560,120] },
+  gvanrossum:  { initials:'GV', joined:'2006', loc:'Belmont, CA',    commits:1204, repos:18,  streak:5,  longest:41, langs:[72,10,8,5,5],   repoNames:['cpython','mypy','peps','typeshed','Dropbox'],        stars:[60100,17800,4200,3800,980] },
+  sindresorhus:{ initials:'SS', joined:'2009', loc:'Thailand',       commits:4120, repos:180, streak:29, longest:88, langs:[60,28,7,3,2],   repoNames:['awesome','got','execa','chalk','ora'],                stars:[310000,14100,5400,21600,8900] },
+};
+
+const MOCK_COMMITS = [
+  { hash:'a3f82c1', msg:'fix: null pointer dereference in mm/slab.c',          repo:'linux',      time:'2h ago',  dayOffset:0 },
+  { hash:'b9e14d0', msg:'perf: optimize page table walk for huge pages',        repo:'linux',      time:'5h ago',  dayOffset:0 },
+  { hash:'c1d99fa', msg:'docs: update MAINTAINERS for networking subsystem',    repo:'linux',      time:'7h ago',  dayOffset:0 },
+  { hash:'e72b3c8', msg:'mm: fix race condition in folio reference counting',   repo:'linux',      time:'1d ago',  dayOffset:1 },
+  { hash:'f4a110b', msg:'net: tcp: improve retransmission timeout logic',       repo:'linux',      time:'2d ago',  dayOffset:2 },
+  { hash:'9c83de2', msg:'arch/x86: add support for AMX tile registers',         repo:'linux',      time:'3d ago',  dayOffset:3 },
+  { hash:'2b77f1a', msg:'fs/btrfs: repair tree-checker on invalid leaf',        repo:'linux',      time:'4d ago',  dayOffset:4 },
+];
+
+const DEFAULT_LANG_LABELS = ['JavaScript', 'TypeScript', 'Python', 'Go', 'Other'];
+const DEFAULT_LANG_COLORS = ['#f7df1e', '#3178c6', '#3572a5', '#00add8', '#6e7681'];
+const LANGUAGE_PALETTE = ['#f7df1e', '#3178c6', '#3572a5', '#00add8', '#f34b7d', '#563d7c', '#89e051', '#e34c26'];
+const RECENT_COMMITS_VISIBLE = 8;
+const WEEK_DAYS   = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const WEEK_DATA   = [4, 7, 2, 9, 5, 3, 6];
+const GITHUB_API  = 'https://api.github.com';
+const EVENT_WEIGHT = {
+  PushEvent: (ev) => (ev.payload && typeof ev.payload.size === 'number' ? ev.payload.size : 1),
+  PullRequestEvent: () => 1,
+  IssuesEvent: () => 1,
+  PullRequestReviewEvent: () => 1,
+  CreateEvent: () => 1,
+};
+
+/* ─────────────────────────────────────────────
+   STATE
+   ───────────────────────────────────────────── */
+let currentUser = { name:'torvalds', ...MOCK_USERS.torvalds };
+let commitFilter = 'all';
+let recentCommits = [...MOCK_COMMITS];
+let contributionCounts = {};
+let weekDataCurrent = [...WEEK_DATA];
+let goals = [
+  { type:'daily',  target:3,  current:2,  label:'Daily commits' },
+  { type:'weekly', target:20, current:14, label:'Weekly commits' },
+  { type:'streak', target:30, current:14, label:'Streak (days)' },
+];
+let langChartInst = null;
+let weekChartInst = null;
+let githubToken = '';
+let languageBreakdown = {
+  labels: [...DEFAULT_LANG_LABELS],
+  data: [...MOCK_USERS.torvalds.langs],
+  colors: [...DEFAULT_LANG_COLORS],
+};
+
+/* ─────────────────────────────────────────────
+   HELPERS
+   ───────────────────────────────────────────── */
+function toDateKey(dateLike) {
+  const d = new Date(dateLike);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function formatRelativeTime(dateLike) {
+  const ms = Date.now() - new Date(dateLike).getTime();
+  const mins = Math.floor(ms / 60000);
+  if (mins < 60) return `${Math.max(1, mins)}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
+
+function initialsFromName(name) {
+  return (name || '').replace(/[^a-z0-9]/gi, '').slice(0, 2).toUpperCase() || 'GH';
+}
+
+function isWithinDays(dateLike, days) {
+  const date = new Date(dateLike);
+  const cutoff = new Date();
+  cutoff.setHours(0, 0, 0, 0);
+  cutoff.setDate(cutoff.getDate() - (days - 1));
+  return date >= cutoff;
+}
+
+function levelFromCount(count) {
+  if (count <= 0) return 0;
+  if (count < 3) return 1;
+  if (count < 6) return 2;
+  if (count < 10) return 3;
+  return 4;
+}
+
+function getStreaks(countsByDate) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const dayKey = (d) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+  const shiftKey = (key, deltaDays) => {
+    const d = new Date(`${key}T12:00:00`);
+    d.setDate(d.getDate() + deltaDays);
+    return dayKey(d);
+  };
+
+  let current = 0;
+  let probeKey = dayKey(today);
+  const yesterdayKey = shiftKey(probeKey, -1);
+  if ((countsByDate[probeKey] || 0) === 0 && (countsByDate[yesterdayKey] || 0) > 0) {
+    probeKey = yesterdayKey;
+  }
+  while ((countsByDate[probeKey] || 0) > 0) {
+    current += 1;
+    probeKey = shiftKey(probeKey, -1);
+  }
+
+  const dates = Object.keys(countsByDate)
+    .filter((k) => countsByDate[k] > 0)
+    .sort();
+  let longest = 0;
+  let run = 0;
+  let prevKey = null;
+
+  dates.forEach((k) => {
+    if (!prevKey) {
+      run = 1;
+    } else {
+      const a = new Date(`${prevKey}T12:00:00`);
+      const b = new Date(`${k}T12:00:00`);
+      const gap = Math.round((b - a) / 86400000);
+      run = gap === 1 ? run + 1 : 1;
+    }
+    if (run > longest) longest = run;
+    prevKey = k;
+  });
+
+  return { current, longest };
+}
+
+function buildLanguageBreakdown(langTotals) {
+  const sorted = Object.entries(langTotals).sort((a, b) => b[1] - a[1]);
+  if (!sorted.length) {
+    return {
+      labels: [...DEFAULT_LANG_LABELS],
+      data: [...currentUser.langs],
+      colors: [...DEFAULT_LANG_COLORS],
+    };
+  }
+
+  const totalBytes = sorted.reduce((sum, [, v]) => sum + v, 0) || 1;
+  const top = sorted.slice(0, 4);
+  const labels = top.map(([name]) => name);
+  const data = top.map(([, bytes]) => Math.round((bytes / totalBytes) * 100));
+  const otherPct = Math.max(0, 100 - data.reduce((sum, v) => sum + v, 0));
+
+  if (sorted.length > 4 && otherPct > 0) {
+    labels.push('Other');
+    data.push(otherPct);
+  }
+
+  const colors = labels.map((_, i) => LANGUAGE_PALETTE[i % LANGUAGE_PALETTE.length]);
+  return { labels, data, colors };
+}
+
+async function fetchRecentCommitsFromRepos(username, repos) {
+  const candidates = [...repos]
+    .filter((r) => !r.fork)
+    .sort((a, b) => new Date(b.pushed_at) - new Date(a.pushed_at))
+    .slice(0, 10);
+
+  const commitLists = await Promise.all(candidates.map(async (repo) => {
+    try {
+      const endpoint = `${GITHUB_API}/repos/${repo.full_name}/commits?author=${encodeURIComponent(username)}&per_page=8`;
+      const commits = await githubFetch(endpoint);
+      return commits.map((c) => {
+        const timestamp = (c && c.commit && c.commit.author && c.commit.author.date) || new Date().toISOString();
+        const ts = new Date(timestamp);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const stamp = new Date(ts);
+        stamp.setHours(0, 0, 0, 0);
+        const dayOffset = Math.max(0, Math.floor((today - stamp) / 86400000));
+        return {
+          hash: (c.sha || '').slice(0, 7),
+          msg: (c.commit && c.commit.message ? c.commit.message.split('\n')[0] : 'Commit'),
+          repo: repo.name,
+          time: formatRelativeTime(timestamp),
+          dayOffset,
+          createdAt: timestamp,
+        };
+      });
+    } catch (_) {
+      return [];
+    }
+  }));
+
+  const unique = new Map();
+  commitLists.flat().forEach((c) => {
+    if (c.hash && !unique.has(c.hash)) unique.set(c.hash, c);
+  });
+
+  return [...unique.values()]
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    .slice(0, 30)
+    .map(({ createdAt, ...rest }) => rest);
+}
+
+function buildWeekData(countsByDate) {
+  const now = new Date();
+  const day = now.getDay();
+  const mondayOffset = (day + 6) % 7;
+  const monday = new Date(now);
+  monday.setHours(0, 0, 0, 0);
+  monday.setDate(now.getDate() - mondayOffset);
+
+  return WEEK_DAYS.map((_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return countsByDate[toDateKey(d)] || 0;
+  });
+}
+
+async function githubFetch(url) {
+  const headers = { Accept: 'application/vnd.github+json' };
+  if (githubToken) headers.Authorization = `Bearer ${githubToken}`;
+  const res = await fetch(url, { headers });
+  if (!res.ok) {
+    let msg = `GitHub API request failed (${res.status})`;
+    try {
+      const payload = await res.json();
+      if (payload && payload.message) msg = payload.message;
+    } catch (_) {}
+    throw new Error(msg);
+  }
+  return res.json();
+}
+
+async function githubGraphQL(query, variables) {
+  if (!githubToken) throw new Error('A GitHub token is required for accurate contribution counts.');
+  const res = await fetch(`${GITHUB_API}/graphql`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/vnd.github+json',
+      Authorization: `Bearer ${githubToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ query, variables }),
+  });
+
+  const payload = await res.json();
+  if (!res.ok || payload.errors) {
+    const msg = payload && payload.errors && payload.errors[0] && payload.errors[0].message
+      ? payload.errors[0].message
+      : `GitHub GraphQL request failed (${res.status})`;
+    throw new Error(msg);
+  }
+  return payload.data;
+}
+
+async function fetchContributionCalendar(username) {
+  const now = new Date();
+  const from = new Date(now);
+  from.setDate(now.getDate() - 364);
+
+  const query = `
+    query($login: String!, $from: DateTime!, $to: DateTime!) {
+      user(login: $login) {
+        contributionsCollection(from: $from, to: $to) {
+          contributionCalendar {
+            totalContributions
+            weeks {
+              contributionDays {
+                date
+                contributionCount
+              }
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  const data = await githubGraphQL(query, {
+    login: username,
+    from: from.toISOString(),
+    to: now.toISOString(),
+  });
+
+  const user = data && data.user;
+  if (!user || !user.contributionsCollection) {
+    throw new Error('User contribution data was not returned by GraphQL.');
+  }
+
+  const calendar = user.contributionsCollection.contributionCalendar;
+  const countsByDate = {};
+  calendar.weeks.forEach((week) => {
+    week.contributionDays.forEach((day) => {
+      countsByDate[day.date] = day.contributionCount;
+    });
+  });
+
+  return {
+    totalContributions: calendar.totalContributions,
+    countsByDate,
+  };
+}
+
+function showStatus(message, type = 'info') {
+  const banner = document.getElementById('status-banner');
+  if (!banner) return;
+  banner.className = 'status-banner';
+  if (!message) {
+    banner.textContent = '';
+    return;
+  }
+  banner.classList.add(type);
+  banner.textContent = message;
+}
+
+function saveToken() {
+  const tokenInput = document.getElementById('token-input');
+  if (!tokenInput) return;
+  githubToken = tokenInput.value.trim();
+  if (githubToken) {
+    localStorage.setItem('gitdash.token', githubToken);
+  } else {
+    localStorage.removeItem('gitdash.token');
+  }
+}
+
+function setLoading(isLoading) {
+  const btn = document.getElementById('load-btn');
+  const input = document.getElementById('username-input');
+  const tokenInput = document.getElementById('token-input');
+  if (!btn || !input || !tokenInput) return;
+  btn.disabled = isLoading;
+  input.disabled = isLoading;
+  tokenInput.disabled = isLoading;
+  btn.textContent = isLoading ? 'Loading...' : 'Load';
+}
+
+/* ─────────────────────────────────────────────
+   LOAD USER
+   ───────────────────────────────────────────── */
+async function loadUser() {
+  const input = document.getElementById('username-input').value.trim();
+  if (!input) return;
+
+  saveToken();
+  setLoading(true);
+  showStatus(`Loading ${input} from GitHub...`, 'info');
+  try {
+    const username = input;
+    const [user, repos, ev1, ev2, ev3] = await Promise.all([
+      githubFetch(`${GITHUB_API}/users/${encodeURIComponent(username)}`),
+      githubFetch(`${GITHUB_API}/users/${encodeURIComponent(username)}/repos?per_page=100&sort=updated`),
+      githubFetch(`${GITHUB_API}/users/${encodeURIComponent(username)}/events/public?per_page=100&page=1`),
+      githubFetch(`${GITHUB_API}/users/${encodeURIComponent(username)}/events/public?per_page=100&page=2`),
+      githubFetch(`${GITHUB_API}/users/${encodeURIComponent(username)}/events/public?per_page=100&page=3`),
+    ]);
+
+    const allEvents = [...ev1, ...ev2, ...ev3];
+    const countsByDateFromEvents = {};
+    const commitMap = new Map();
+
+    allEvents.forEach((ev) => {
+      if (!isWithinDays(ev.created_at, 365)) return;
+      const key = toDateKey(ev.created_at);
+      const scorer = EVENT_WEIGHT[ev.type];
+      if (scorer) countsByDateFromEvents[key] = (countsByDateFromEvents[key] || 0) + scorer(ev);
+
+      if (ev.type === 'PushEvent' && ev.payload && Array.isArray(ev.payload.commits)) {
+        ev.payload.commits.forEach((c) => {
+          if (!c || !c.sha) return;
+          if (commitMap.has(c.sha)) return;
+          const ts = new Date(ev.created_at);
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const stamp = new Date(ts);
+          stamp.setHours(0, 0, 0, 0);
+          const dayOffset = Math.max(0, Math.floor((today - stamp) / 86400000));
+          commitMap.set(c.sha, {
+            hash: c.sha.slice(0, 7),
+            msg: c.message || 'Commit',
+            repo: (ev.repo && ev.repo.name ? ev.repo.name.split('/')[1] : 'repo'),
+            time: formatRelativeTime(ev.created_at),
+            dayOffset,
+            createdAt: ev.created_at,
+          });
+        });
+      }
+    });
+
+    const eventCommits = [...commitMap.values()]
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, 30)
+      .map(({ createdAt, ...rest }) => rest);
+
+    const repoCommits = await fetchRecentCommitsFromRepos(username, repos);
+    const sortedCommits = repoCommits.length ? repoCommits : eventCommits;
+
+    const topRepos = [...repos]
+      .sort((a, b) => b.stargazers_count - a.stargazers_count)
+      .slice(0, 5);
+
+    const langRepos = [...repos].sort((a, b) => b.size - a.size).slice(0, 8);
+    const langMaps = await Promise.all(
+      langRepos.map((r) => githubFetch(r.languages_url).catch(() => ({})))
+    );
+    const langTotals = {};
+    langMaps.forEach((obj) => {
+      Object.entries(obj).forEach(([lang, bytes]) => {
+        langTotals[lang] = (langTotals[lang] || 0) + bytes;
+      });
+    });
+
+    const langBreakdown = buildLanguageBreakdown(langTotals);
+
+    let countsByDate = countsByDateFromEvents;
+    let commitsThisYear = Object.values(countsByDateFromEvents).reduce((sum, v) => sum + v, 0);
+    let usedAccurateContributions = false;
+
+    if (githubToken) {
+      try {
+        const calendar = await fetchContributionCalendar(username);
+        countsByDate = calendar.countsByDate;
+        commitsThisYear = calendar.totalContributions;
+        usedAccurateContributions = true;
+      } catch (calendarErr) {
+        showStatus(`Loaded profile, but accurate contributions failed: ${calendarErr.message}`, 'warn');
+      }
+    }
+
+    const streak = getStreaks(countsByDate);
+
+    currentUser = {
+      name: user.login,
+      initials: initialsFromName(user.login),
+      joined: new Date(user.created_at).getFullYear().toString(),
+      loc: user.location || 'Unknown',
+      commits: commitsThisYear,
+      repos: user.public_repos,
+      streak: streak.current,
+      longest: streak.longest,
+      langs: langBreakdown.data,
+      repoNames: topRepos.map((r) => r.name),
+      stars: topRepos.map((r) => r.stargazers_count),
+    };
+
+    contributionCounts = countsByDate;
+    weekDataCurrent = buildWeekData(countsByDate);
+    recentCommits = sortedCommits;
+    languageBreakdown = langBreakdown;
+
+    goals = goals.map((g) => {
+      if (g.type === 'daily') return { ...g, current: contributionCounts[toDateKey(new Date())] || 0 };
+      if (g.type === 'weekly') return { ...g, current: weekDataCurrent.reduce((sum, v) => sum + v, 0) };
+      if (g.type === 'streak') return { ...g, current: streak.current };
+      return g;
+    });
+
+    render();
+    if (usedAccurateContributions) {
+      showStatus(`Loaded ${user.login} successfully with accurate GitHub contribution calendar data.`, 'success');
+    } else if (!githubToken) {
+      showStatus(`Loaded ${user.login}, but contributions are estimated from public events. Add a token for accurate yearly totals.`, 'warn');
+    } else {
+      showStatus(`Loaded ${user.login} successfully (using event-based contribution estimate).`, 'warn');
+    }
+  } catch (err) {
+    const key = input.toLowerCase();
+    const data = MOCK_USERS[key];
+    if (data) {
+      currentUser = { name: input, ...data };
+      contributionCounts = {};
+      weekDataCurrent = [...WEEK_DATA];
+      recentCommits = [...MOCK_COMMITS];
+      languageBreakdown = {
+        labels: [...DEFAULT_LANG_LABELS],
+        data: [...data.langs],
+        colors: [...DEFAULT_LANG_COLORS],
+      };
+      render();
+      showStatus(`GitHub API unavailable. Showing fallback demo data for ${input}.`, 'warn');
+    } else {
+      showStatus(`Unable to load GitHub user: ${err.message}`, 'error');
+    }
+  } finally {
+    setLoading(false);
+  }
+}
+
+/* ─────────────────────────────────────────────
+   CONTRIBUTION GRAPH
+   ───────────────────────────────────────────── */
+function buildContribGrid() {
+  const wrap  = document.getElementById('contrib-wrap');
+  const mlRow = document.getElementById('month-labels');
+  wrap.innerHTML  = '';
+  mlRow.innerHTML = '';
+
+  const WEEKS = 52;
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const start = new Date(today);
+  start.setDate(today.getDate() - WEEKS * 7 + 1);
+
+  const COLORS = ['#161b22','#0e4429','#006d32','#26a641','#39d353'];
+  const monthSlots = new Array(WEEKS).fill('');
+  let prevMonth = -1;
+
+  for (let w = 0; w < WEEKS; w++) {
+    const col = document.createElement('div');
+    col.className = 'contrib-col';
+
+    const firstDay = new Date(start);
+    firstDay.setDate(start.getDate() + w * 7);
+    const mo = firstDay.getMonth();
+    if (mo !== prevMonth) {
+      monthSlots[w] = firstDay.toLocaleString('default',{month:'short'});
+      prevMonth = mo;
+    }
+
+    for (let d = 0; d < 7; d++) {
+      const date = new Date(start);
+      date.setDate(start.getDate() + w * 7 + d);
+      const isPast = date <= today;
+      const key = toDateKey(date);
+      const count = isPast ? (contributionCounts[key] || 0) : 0;
+      const level = levelFromCount(count);
+      const cell  = document.createElement('div');
+      cell.className = 'contrib-cell';
+      cell.style.background = isPast ? COLORS[level] : '#0d1117';
+      if (!isPast) cell.style.opacity = '0.3';
+      cell.dataset.date  = date.toDateString();
+      cell.dataset.count = count;
+      cell.addEventListener('mouseenter', showTooltip);
+      cell.addEventListener('mouseleave', hideTooltip);
+      col.appendChild(cell);
+    }
+    wrap.appendChild(col);
+  }
+
+  // month label row
+  monthSlots.forEach(label => {
+    const slot = document.createElement('div');
+    slot.className = 'month-slot';
+    slot.textContent = label;
+    mlRow.appendChild(slot);
+  });
+}
+
+function showTooltip(e) {
+  const tt   = document.getElementById('tooltip');
+  const c    = parseInt(e.target.dataset.count);
+  tt.textContent = `${e.target.dataset.date}: ${c} contribution${c !== 1 ? 's' : ''}`;
+  tt.style.display = 'block';
+  tt.style.left    = (e.clientX + 12) + 'px';
+  tt.style.top     = (e.clientY - 28) + 'px';
+}
+function hideTooltip() { document.getElementById('tooltip').style.display = 'none'; }
+document.addEventListener('mousemove', e => {
+  const tt = document.getElementById('tooltip');
+  if (tt.style.display === 'block') { tt.style.left = (e.clientX+12)+'px'; tt.style.top = (e.clientY-28)+'px'; }
+});
+
+/* ─────────────────────────────────────────────
+   COMMITS
+   ───────────────────────────────────────────── */
+function renderCommits() {
+  let items = recentCommits;
+  if (commitFilter === 'today') items = recentCommits.filter(c => c.dayOffset === 0);
+  if (commitFilter === 'week')  items = recentCommits.filter(c => c.dayOffset <= 6);
+  items = items.slice(0, RECENT_COMMITS_VISIBLE);
+  if (!items.length) {
+    document.getElementById('commit-list').innerHTML = '<p style="color:var(--text3);font-size:13px;padding:6px 0;">No recent commits found for this user.</p>';
+    return;
+  }
+  document.getElementById('commit-list').innerHTML = items.map(c => `
+    <div class="commit-item">
+      <span class="commit-hash">${c.hash}</span>
+      <div style="flex:1;min-width:0;">
+        <div class="commit-msg">${c.msg}</div>
+        <div style="margin-top:3px;">
+          <span class="repo-chip">${c.repo}</span>
+          <span class="commit-meta">${c.time}</span>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function setFilter(f, el) {
+  commitFilter = f;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderCommits();
+}
+
+/* ─────────────────────────────────────────────
+   LANGUAGE CHART
+   ───────────────────────────────────────────── */
+function renderLangChart() {
+  const breakdown = languageBreakdown;
+  if (langChartInst) langChartInst.destroy();
+  langChartInst = new Chart(document.getElementById('langChart'), {
+    type: 'doughnut',
+    data: {
+      labels: breakdown.labels,
+      datasets: [{ data: breakdown.data, backgroundColor: breakdown.colors, borderWidth: 0, hoverOffset: 6 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '68%',
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed}%` } }
+      }
+    }
+  });
+  document.getElementById('lang-legend').innerHTML = breakdown.labels.map((n, i) =>
+    `<span><span style="width:9px;height:9px;border-radius:2px;background:${breakdown.colors[i]};display:inline-block;"></span>${n} ${breakdown.data[i]}%</span>`
+  ).join('');
+}
+
+/* ─────────────────────────────────────────────
+   WEEKLY CHART
+   ───────────────────────────────────────────── */
+function renderWeekChart() {
+  if (weekChartInst) weekChartInst.destroy();
+  weekChartInst = new Chart(document.getElementById('weekChart'), {
+    type: 'bar',
+    data: {
+      labels: WEEK_DAYS,
+      datasets: [{ data: weekDataCurrent, backgroundColor: '#26a641', borderRadius: 4, borderSkipped: false }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false, drawBorder: false }, ticks: { color: '#8b949e', font: { size: 11 } } },
+        y: { grid: { color: 'rgba(48,54,61,0.8)' }, ticks: { color: '#8b949e', font: { size: 11 }, stepSize: 3 }, border: { display: false } }
+      }
+    }
+  });
+}
+
+/* ─────────────────────────────────────────────
+   GOALS
+   ───────────────────────────────────────────── */
+function renderGoals() {
+  document.getElementById('goals-list').innerHTML = goals.length ? goals.map((g, i) => {
+    const pct    = Math.min(100, Math.round(g.current / g.target * 100));
+    const color  = pct >= 100 ? '#39d353' : pct >= 60 ? '#26a641' : '#006d32';
+    return `<div class="goal-row">
+      <div class="goal-name">${g.label}</div>
+      <div class="progress-bg"><div class="progress-fill" style="width:${pct}%;background:${color};"></div></div>
+      <div class="goal-count">${g.current}/${g.target}</div>
+      <button class="goal-remove" onclick="removeGoal(${i})" title="Remove">✕</button>
+    </div>`;
+  }).join('') : '<p style="color:var(--text3);font-size:13px;padding:8px 0;">No goals yet. Add one below.</p>';
+}
+
+function removeGoal(i) { goals.splice(i, 1); renderGoals(); }
+
+function toggleAddForm() {
+  const f = document.getElementById('add-form');
+  f.style.display = f.style.display === 'none' || !f.style.display ? 'block' : 'none';
+}
+
+function addGoal() {
+  const type   = document.getElementById('goal-type').value;
+  const target = parseInt(document.getElementById('goal-target').value);
+  if (!target || target < 1) {
+    showStatus('Please enter a valid goal target (1 or greater).', 'warn');
+    return;
+  }
+  const labels = { daily:'Daily commits', weekly:'Weekly commits', pr:'PRs / week', streak:'Streak (days)' };
+  goals.push({ type, target, current: Math.floor(Math.random() * target * 0.8), label: labels[type] });
+  document.getElementById('goal-target').value = '';
+  document.getElementById('add-form').style.display = 'none';
+  renderGoals();
+  showStatus('Goal added.', 'success');
+}
+
+/* ─────────────────────────────────────────────
+   REPOS
+   ───────────────────────────────────────────── */
+function renderRepos(user) {
+  document.getElementById('repos-list').innerHTML = user.repoNames.map((r, i) => `
+    <div class="repo-row">
+      <a href="https://github.com/${currentUser.name}/${r}" target="_blank">${r}</a>
+      <span class="repo-stars">★ ${(user.stars[i] || 0).toLocaleString()}</span>
+    </div>`).join('');
+}
+
+/* ─────────────────────────────────────────────
+   MAIN RENDER
+   ───────────────────────────────────────────── */
+function render() {
+  const u = currentUser;
+  document.getElementById('avatar-initials').textContent  = u.initials;
+  document.getElementById('display-username').textContent = u.name;
+  document.getElementById('display-meta').textContent     = `Joined ${u.joined} · ${u.loc}`;
+  document.getElementById('m-commits').textContent        = u.commits.toLocaleString();
+  document.getElementById('m-repos').textContent          = u.repos;
+  document.getElementById('m-streak').textContent         = `${u.streak} days`;
+  document.getElementById('m-longest').textContent        = `${u.longest} days`;
+  document.getElementById('contrib-label').textContent    = `${u.commits.toLocaleString()} contributions in the last year`;
+  document.querySelector('.streak-badge').textContent     = `🔥 ${u.streak} ${u.streak === 1 ? 'day' : 'days'} streak`;
+
+  buildContribGrid();
+  renderCommits();
+  renderLangChart();
+  renderWeekChart();
+  renderGoals();
+  renderRepos(u);
+}
+
+render();
+
+const savedToken = localStorage.getItem('gitdash.token') || '';
+if (savedToken) {
+  const tokenInput = document.getElementById('token-input');
+  if (tokenInput) tokenInput.value = savedToken;
+  githubToken = savedToken;
+}
+
+document.getElementById('token-input').addEventListener('change', saveToken);
+document.getElementById('username-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') loadUser();
+});
+
+loadUser();
+</script>
+</body>
+</html>
