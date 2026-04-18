@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>GitHub Dashboard</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <style>
     /* ── Reset & base ── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -47,6 +48,7 @@
     .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     .grid-3 { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
+    .grid-2 > *, .grid-3 > * { min-width: 0; }
 
     @media (max-width: 768px) {
       .grid-4 { grid-template-columns: repeat(2, 1fr); }
@@ -225,9 +227,16 @@
     .repo-row {
       display: flex; justify-content: space-between; align-items: center;
       padding: 8px 0; border-bottom: 1px solid var(--border);
-      font-size: 13px;
+      font-size: 13px; gap: 8px;
     }
     .repo-row:last-child { border-bottom: none; }
+    .repo-row a {
+      min-width: 0;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
     .repo-stars { font-size: 11px; color: var(--text3); }
 
     /* ── Lang legend ── */
@@ -289,6 +298,16 @@
       border-color: rgba(248, 81, 73, 0.35);
     }
 
+    /* ── Share actions ── */
+    .share-actions {
+      width: 100%;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+    .share-actions .btn { font-size: 12px; }
+
     @media (max-width: 768px) {
       .user-input {
         margin-left: 0;
@@ -319,6 +338,11 @@
       <input type="text" id="username-input" placeholder="GitHub username…" value="torvalds" />
       <input type="password" id="token-input" placeholder="GitHub token (optional)" autocomplete="off" />
       <button class="btn btn-primary" id="load-btn" onclick="loadUser()">Load</button>
+    </div>
+    <div class="share-actions">
+      <button class="btn" id="copy-share-btn" onclick="copyShareText()">Copy stats text</button>
+      <button class="btn" id="download-text-btn" onclick="downloadShareText()">Download stats text</button>
+      <button class="btn" id="download-shot-btn" onclick="downloadDashboardScreencap()">Download screencap</button>
     </div>
     <div id="status-banner" class="status-banner" role="status" aria-live="polite"></div>
   </div>
@@ -1125,6 +1149,135 @@ function renderRepos(user) {
       <a href="https://github.com/${currentUser.name}/${r}" target="_blank">${r}</a>
       <span class="repo-stars">★ ${(user.stars[i] || 0).toLocaleString()}</span>
     </div>`).join('');
+}
+
+/* ─────────────────────────────────────────────
+   SHARE / EXPORT
+   ───────────────────────────────────────────── */
+function buildShareText() {
+  const u = currentUser;
+  const langs = languageBreakdown.labels
+    .map((name, i) => `${name} ${languageBreakdown.data[i]}%`)
+    .slice(0, 5)
+    .join(', ');
+
+  const topRepos = u.repoNames
+    .map((name, i) => `${name} (${(u.stars[i] || 0).toLocaleString()} stars)`)
+    .slice(0, 5)
+    .join(', ');
+
+  const commitsPreview = recentCommits
+    .slice(0, 5)
+    .map((c) => `- [${c.hash}] ${c.msg} (${c.repo}, ${c.time})`)
+    .join('\n') || '- No recent commits found';
+
+  return [
+    `GitHub Dashboard Snapshot: ${u.name}`,
+    `Generated: ${new Date().toLocaleString()}`,
+    '',
+    `Contributions (last year): ${u.commits.toLocaleString()}`,
+    `Public repos: ${u.repos}`,
+    `Current streak: ${u.streak} day${u.streak === 1 ? '' : 's'}`,
+    `Longest streak: ${u.longest} day${u.longest === 1 ? '' : 's'}`,
+    '',
+    `Languages: ${langs || 'N/A'}`,
+    `Top repos: ${topRepos || 'N/A'}`,
+    '',
+    'Recent commits:',
+    commitsPreview,
+  ].join('\n');
+}
+
+async function copyShareText() {
+  const text = buildShareText();
+  try {
+    await navigator.clipboard.writeText(text);
+    showStatus('Stats text copied to clipboard.', 'success');
+  } catch (_) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+    showStatus('Stats text copied to clipboard.', 'success');
+  }
+}
+
+function downloadShareText() {
+  const blob = new Blob([buildShareText()], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${currentUser.name}-github-stats.txt`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  showStatus('Stats text file downloaded.', 'success');
+}
+
+async function downloadDashboardScreencap() {
+  if (typeof html2canvas === 'undefined') {
+    showStatus('Screencap export is unavailable right now.', 'error');
+    return;
+  }
+
+  const wrapper = document.querySelector('.wrapper');
+  const tokenInput = document.getElementById('token-input');
+  if (!wrapper || !tokenInput) return;
+
+  const chartSnapshots = [];
+  [langChartInst, weekChartInst].forEach((chart) => {
+    if (!chart || !chart.canvas) return;
+    chart.resize();
+    chart.update('none');
+
+    const canvas = chart.canvas;
+    const rect = canvas.getBoundingClientRect();
+    const img = document.createElement('img');
+    img.src = chart.toBase64Image();
+    img.alt = canvas.getAttribute('aria-label') || 'Chart image';
+    img.style.width = `${Math.round(rect.width)}px`;
+    img.style.height = `${Math.round(rect.height)}px`;
+    img.style.display = 'block';
+
+    chartSnapshots.push({ canvas, img });
+    canvas.style.display = 'none';
+    canvas.parentNode.insertBefore(img, canvas.nextSibling);
+  });
+
+  const originalType = tokenInput.type;
+  const originalValue = tokenInput.value;
+  tokenInput.type = 'text';
+  tokenInput.value = originalValue ? '****************' : '';
+
+  try {
+    showStatus('Preparing dashboard screencap...', 'info');
+    const canvas = await html2canvas(wrapper, {
+      backgroundColor: '#0d1117',
+      scale: 2,
+      useCORS: true,
+    });
+    const png = canvas.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = png;
+    a.download = `${currentUser.name}-github-dashboard.png`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    showStatus('Dashboard screencap downloaded.', 'success');
+  } catch (err) {
+    showStatus(`Unable to export screencap: ${err.message}`, 'error');
+  } finally {
+    tokenInput.type = originalType;
+    tokenInput.value = originalValue;
+
+    chartSnapshots.forEach(({ canvas, img }) => {
+      if (img && img.parentNode) img.parentNode.removeChild(img);
+      if (canvas) canvas.style.display = '';
+    });
+  }
 }
 
 /* ─────────────────────────────────────────────
