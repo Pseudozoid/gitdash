@@ -660,8 +660,7 @@ async function fetchRecentCommitsFromRepos(username, repos) {
 
   return [...unique.values()]
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-    .slice(0, 30)
-    .map(({ createdAt, ...rest }) => rest);
+    .slice(0, 30);
 }
 
 function buildWeekData(countsByDate) {
@@ -677,6 +676,29 @@ function buildWeekData(countsByDate) {
     d.setDate(monday.getDate() + i);
     return countsByDate[toDateKey(d)] || 0;
   });
+}
+
+function buildWeekDataFromCommits(commits) {
+  const now = new Date();
+  const day = now.getDay();
+  const mondayOffset = (day + 6) % 7;
+  const monday = new Date(now);
+  monday.setHours(0, 0, 0, 0);
+  monday.setDate(now.getDate() - mondayOffset);
+
+  const dayMs = 86400000;
+  const data = new Array(7).fill(0);
+
+  commits.forEach((c) => {
+    if (!c || !c.createdAt) return;
+    const stamp = new Date(c.createdAt);
+    if (Number.isNaN(stamp.getTime())) return;
+    stamp.setHours(0, 0, 0, 0);
+    const idx = Math.floor((stamp - monday) / dayMs);
+    if (idx >= 0 && idx < 7) data[idx] += 1;
+  });
+
+  return data;
 }
 
 async function githubFetch(url) {
@@ -852,8 +874,7 @@ async function loadUser() {
 
     const eventCommits = [...commitMap.values()]
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-      .slice(0, 30)
-      .map(({ createdAt, ...rest }) => rest);
+      .slice(0, 30);
 
     const repoCommits = await fetchRecentCommitsFromRepos(username, repos);
     const sortedCommits = repoCommits.length ? repoCommits : eventCommits;
@@ -907,8 +928,11 @@ async function loadUser() {
     };
 
     contributionCounts = countsByDate;
-    weekDataCurrent = buildWeekData(countsByDate);
     recentCommits = sortedCommits;
+    const weekFromCommits = buildWeekDataFromCommits(sortedCommits);
+    weekDataCurrent = weekFromCommits.some((n) => n > 0)
+      ? weekFromCommits
+      : buildWeekData(countsByDate);
     languageBreakdown = langBreakdown;
 
     goals = goals.map((g) => {
