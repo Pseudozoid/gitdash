@@ -98,6 +98,12 @@
       display: flex; align-items: center; justify-content: center;
       font-size: 16px; font-weight: 600; color: #fff;
       flex-shrink: 0;
+      overflow: hidden;
+    }
+    .avatar img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
     }
     .username  { font-size: 18px; font-weight: 600; }
     .user-sub  { font-size: 12px; color: var(--text2); margin-top: 2px; }
@@ -328,7 +334,7 @@
 
   <!-- ── Header ── -->
   <div class="header">
-    <div class="avatar" id="avatar-initials">LT</div>
+    <div class="avatar" id="avatar-el">LT</div>
     <div>
       <div class="username" id="display-username">torvalds</div>
       <div class="user-sub" id="display-meta">Joined 2011 · Portland, OR</div>
@@ -486,7 +492,7 @@ const EVENT_WEIGHT = {
 /* ─────────────────────────────────────────────
    STATE
    ───────────────────────────────────────────── */
-let currentUser = { name:'torvalds', ...MOCK_USERS.torvalds };
+let currentUser = { name:'torvalds', avatarUrl:'', ...MOCK_USERS.torvalds };
 let commitFilter = 'all';
 let recentCommits = [...MOCK_COMMITS];
 let contributionCounts = {};
@@ -916,6 +922,7 @@ async function loadUser() {
     currentUser = {
       name: user.login,
       initials: initialsFromName(user.login),
+      avatarUrl: user.avatar_url || '',
       joined: new Date(user.created_at).getFullYear().toString(),
       loc: user.location || 'Unknown',
       commits: commitsThisYear,
@@ -1309,7 +1316,12 @@ async function downloadDashboardScreencap() {
    ───────────────────────────────────────────── */
 function render() {
   const u = currentUser;
-  document.getElementById('avatar-initials').textContent  = u.initials;
+  const avatarEl = document.getElementById('avatar-el');
+  if (u.avatarUrl) {
+    avatarEl.innerHTML = `<img src="${u.avatarUrl}" alt="${u.name}" />`;
+  } else {
+    avatarEl.textContent = u.initials;
+  }
   document.getElementById('display-username').textContent = u.name;
   document.getElementById('display-meta').textContent     = `Joined ${u.joined} · ${u.loc}`;
   document.getElementById('m-commits').textContent        = u.commits.toLocaleString();
