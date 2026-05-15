@@ -892,10 +892,18 @@ if (savedToken) {
   githubToken = savedToken;
 }
 
+window.loadUser = loadUser;
+window.copyShareText = copyShareText;
+window.downloadShareText = downloadShareText;
+window.downloadDashboardScreencap = downloadDashboardScreencap;
+window.setFilter = setFilter;
+window.toggleAddForm = toggleAddForm;
+window.addGoal = addGoal;
+window.removeGoal = removeGoal;
+
 document.getElementById('token-input').addEventListener('change', saveToken);
 document.getElementById('username-input').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') loadUser();
 });
 
 loadUser();
-</script>
